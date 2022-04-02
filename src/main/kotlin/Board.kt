@@ -1,4 +1,5 @@
 import engine.getResource
+import org.joml.Vector3f
 
 class Board(val width : Int = 30, val height : Int = 30, val states : Array<Array<State>> = Array(height) {Array(width) {State()} }) {
 
@@ -8,6 +9,7 @@ class Board(val width : Int = 30, val height : Int = 30, val states : Array<Arra
 				when (it) {
 					'+' -> State(true, true)
 					'-' -> State(false, true)
+					'a' -> State(true, false)
 					else -> State(false, false)
 				}
 			}.toTypedArray() }.toTypedArray()
@@ -64,5 +66,13 @@ class State(var isCell : Boolean = false, var persistent : Boolean = false) {
 
 	fun copy() : State {
 		return State(isCell, persistent)
+	}
+
+	fun color() : Vector3f {
+		if (isCell && persistent) return Vector3f(1f, 0f, 0f)
+		if (isCell && !persistent) return Vector3f(0.9f, 0.5f, 0f)
+		if (!isCell && persistent) return Vector3f(0.1f, 0.1f, 0.1f)
+		if (!isCell && !persistent) return Vector3f(0.5f, 0.5f, 0.5f)
+		return Vector3f(0f, 0f, 0f)
 	}
 }
