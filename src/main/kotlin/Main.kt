@@ -4,7 +4,7 @@ import engine.opengl.GLContextPreset
 
 fun main(args: Array<String>) {
 	EnigContext.init()
-	val window = EnigWindow("enignets demo", GLContextPreset.standard2D)
+	val window = EnigWindow("LD50", GLContextPreset.standard2D)
 	val view = GameView()
 	view.runInGLSafe(window)
 
