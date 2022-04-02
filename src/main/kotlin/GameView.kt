@@ -24,7 +24,7 @@ class GameView(val board : Board) : EnigView() {
 	override fun generateResources(window : EnigWindow) {
 		input = window.inputHandler
 
-		vao = VAO(0f, 0f, 1f, 1f)
+		vao = VAO(-0.5f, -0.5f, 1f, 1f)
 		cellShader = ShaderProgram("cellShader")
 		cam = Camera2D(window, board.height * 1.1f)
 	}
@@ -34,6 +34,7 @@ class GameView(val board : Board) : EnigView() {
 
 		if (input.keys[GLFW_KEY_SPACE] == KeyState.Released) {
 			board.step()
+			println(board.prevStates.size)
 		}
 
 		val coords = Vector3f(input.glCursorX, input.glCursorY, 0f) * cam.getMatrix().invert()
@@ -42,7 +43,7 @@ class GameView(val board : Board) : EnigView() {
 		cellShader.enable()
 		vao.prepareRender()
 		for (y in board.yrange) for (x in board.xrange) {
-			cellShader[0, 0] = cam.getMatrix().translate(-board.width / 2 + x.toFloat(), board.height / 2 - 1 - y.toFloat(), 0f)
+			cellShader[0, 0] = cam.getMatrix().translate(-board.width / 2 + x.toFloat(), board.height / 2 - y.toFloat(), 0f)
 			if (x == cx && y == cy) {
 				cellShader[2, 0] = board[x, y].color() + Vector3f(0.1f, 0.1f, 0.1f)
 			} else {
@@ -54,9 +55,13 @@ class GameView(val board : Board) : EnigView() {
 
 		if (input.mouseButtons[GLFW_MOUSE_BUTTON_LEFT] == KeyState.Released) {
 			if (cx in board.xrange && cy in board.yrange) {
-				if (!board[cx, cy].persistent)
+				if (!board[cx, cy].persistent && board.protectedRows <= cy)
 				board[cx, cy].isCell = !board[cx, cy].isCell
 			}
+		}
+
+		if (input.keys[GLFW_KEY_R] == KeyState.Released) {
+			board.reset()
 		}
 
 		return input.keys[GLFW_KEY_ESCAPE] == KeyState.Released
