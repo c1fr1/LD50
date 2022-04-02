@@ -5,7 +5,7 @@ import engine.opengl.GLContextPreset
 fun main(args: Array<String>) {
 	EnigContext.init()
 	val window = EnigWindow("LD50", GLContextPreset.standard2D)
-	val view = GameView()
+	val view = GameView(Board("boards/lvl1"))
 	view.runInGLSafe(window)
 
 	EnigContext.terminate()
