@@ -21,7 +21,7 @@ class Board(val width : Int = 30, val height : Int = 30, val initialStates : Int
 
 	var states = Array(height) {y -> Array(width) {x -> initialStates[y][x]} }
 
-	var protectedRows = 3
+	var nextStates = Array(height) {y -> Array(width) {x -> initialStates[y][x]} }
 
 	companion object {
 		operator fun invoke(path : String) : Board {
@@ -31,6 +31,7 @@ class Board(val width : Int = 30, val height : Int = 30, val initialStates : Int
 					'-' -> State(false, true)
 					'a' -> State(true, false)
 					'g' -> State(false, false, true)
+					'p' -> State(false, false, false, true)
 					else -> State(false, false)
 				}
 			}.toTypedArray() }.toTypedArray()
@@ -48,21 +49,24 @@ class Board(val width : Int = 30, val height : Int = 30, val initialStates : Int
 		states[y][x] = value
 	}
 
+	fun calcNext() : InternalBoard {
+		return Array(height) {y -> Array(width) {x ->
+			var total = 0
+			for (dy in -1..1) for (dx in -1..1) {
+				if (y + dy in yrange && x + dx in xrange && (dx != 0 || dy != 0)) {
+					if (states[y + dy][x + dx].isCell) ++total
+				}
+			}
+			states[y][x].applyRule(total)
+		} }
+	}
+
 	fun step() {
 
 		prevStates.add(states.copy())
 
-		for (y in yrange) for (x in xrange) {
-			var total = 0
-			for (dy in -1..1) for (dx in -1..1) {
-				if (y + dy in yrange && x + dx in xrange && (dx != 0 || dy != 0)) {
-					if (prevStates.last()[y + dy][x + dx].isCell) ++total
-				}
-			}
-			if (!states[y][x].persistent) {
-				states[y][x] = applyRule(total, prevStates.last()[y][x])
-			}
-		}
+		states = calcNext()
+		nextStates = calcNext()
 
 		if (prevStates.any { it.equalsOther(states) }) addPersistent()
 	}
@@ -110,31 +114,19 @@ class Board(val width : Int = 30, val height : Int = 30, val initialStates : Int
 		return false
 	}
 
-	fun applyRule(total : Int, current : State) : State {
-		return when (total) {
-			0 -> State(false, current.persistent, current.goal)
-			1 -> State(false, current.persistent, current.goal)
-			2 -> State(true, current.persistent, false)
-			3 -> State(false, current.persistent, current.goal)
-			4 -> State(false, current.persistent, current.goal)
-			5 -> State(false, current.persistent, current.goal)
-			6 -> State(false, current.persistent, current.goal)
-			7 -> State(false, current.persistent, current.goal)
-			8 -> State(false, current.persistent, current.goal)
-			else -> State()
-		}
-	}
-
 	fun reset() {
 		prevStates.clear()
 		states = initialStates.copy()
 	}
 }
 
-class State(var isCell : Boolean = false, var persistent : Boolean = false, var goal : Boolean = false) {
+class State(var isCell : Boolean = false,
+            var persistent : Boolean = false,
+            var goal : Boolean = false,
+            var protected : Boolean = false) {
 
 	fun copy() : State {
-		return State(isCell, persistent, goal)
+		return State(isCell, persistent, goal, protected)
 	}
 
 	fun color() : Vector3f {
@@ -158,5 +150,23 @@ class State(var isCell : Boolean = false, var persistent : Boolean = false, var 
 		if (!isCell && persistent) return "-"
 		if (!isCell && !persistent) return "0"
 		return "?"
+	}
+
+	fun applyRule(total : Int) : State {
+		if (!persistent) {
+			return when (total) {
+				0 -> State(false, persistent, goal, protected)
+				1 -> State(false, persistent, goal, protected)
+				2 -> State(true, persistent, false, protected)
+				3 -> State(false, persistent, goal, protected)
+				4 -> State(false, persistent, goal, protected)
+				5 -> State(false, persistent, goal, protected)
+				6 -> State(false, persistent, goal, protected)
+				7 -> State(false, persistent, goal, protected)
+				8 -> State(false, persistent, goal, protected)
+				else -> State()
+			}
+		}
+		return this
 	}
 }

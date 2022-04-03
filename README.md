@@ -18,4 +18,10 @@
   - can pour water on areas to make them burn slower
   - voxel based
   - problem is optimal strat is trivial, also probably overscoped
+
+### TODO
+
+- levels
+- moar text
+- chain levels
 - 
