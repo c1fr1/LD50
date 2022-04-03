@@ -17,25 +17,40 @@ fun InternalBoard.print() {
 	}
 }
 
+fun InternalBoard.lost() : Boolean = any {r -> r.any { it.goal && it.active } }
+
 class Board(val width : Int = 30, val height : Int = 30, val initialStates : InternalBoard = Array(height) {Array(width) {State()} }) {
 
 	var states = Array(height) {y -> Array(width) {x -> initialStates[y][x]} }
 
 	var nextStates = Array(height) {y -> Array(width) {x -> initialStates[y][x]} }
 
+	var remainingChanges : Int = 0
+	var goal1 : Int = 0
+	var goal2 : Int = 0
+	var goal3 : Int = 0
+
 	companion object {
 		operator fun invoke(path : String) : Board {
-			val b = getResource(path).readLines().filter { it.isNotEmpty() }.map { it.map {
+			val lines = getResource(path).readLines()
+			val b = lines.drop(2).filter { it.isNotEmpty() }.map { it.map {
 				when (it) {
 					'+' -> State(true, true)
 					'-' -> State(false, true)
 					'a' -> State(true, false)
 					'g' -> State(false, false, true)
 					'p' -> State(false, false, false, true)
+					'A' -> State(true, false, false, true)
 					else -> State(false, false)
 				}
 			}.toTypedArray() }.toTypedArray()
-			return Board(b[0].size, b.size, b)
+			val ret = Board(b[0].size, b.size, b)
+			ret.remainingChanges = lines.first().toInt()
+			val goalLine = lines[1].split(' ')
+			ret.goal1 = goalLine[0].toInt()
+			ret.goal2 = goalLine[1].toInt()
+			ret.goal3 = goalLine[2].toInt()
+			return ret
 		}
 	}
 
@@ -54,7 +69,7 @@ class Board(val width : Int = 30, val height : Int = 30, val initialStates : Int
 			var total = 0
 			for (dy in -1..1) for (dx in -1..1) {
 				if (y + dy in yrange && x + dx in xrange && (dx != 0 || dy != 0)) {
-					if (states[y + dy][x + dx].isCell) ++total
+					if (states[y + dy][x + dx].active) ++total
 				}
 			}
 			states[y][x].applyRule(total)
@@ -73,7 +88,7 @@ class Board(val width : Int = 30, val height : Int = 30, val initialStates : Int
 
 	fun addPersistent() {
 		val didProgress = iterateFromCenter {x, y ->
-			if (states[y][x].isCell && !states[y][x].persistent) {
+			if (states[y][x].active && !states[y][x].persistent) {
 				states[y][x].persistent = true
 				true
 			} else {
@@ -82,9 +97,9 @@ class Board(val width : Int = 30, val height : Int = 30, val initialStates : Int
 		}
 		if (!didProgress) {
 			val stillbad = !iterateFromCenter {x, y ->
-				if (!states[y][x].isCell && !states[y][x].goal && !states[y][x].persistent) {
+				if (!states[y][x].active && !states[y][x].goal && !states[y][x].persistent) {
 					states[y][x].persistent = true
-					states[y][x].isCell = true
+					states[y][x].active = true
 					true
 				} else {
 					false
@@ -120,35 +135,35 @@ class Board(val width : Int = 30, val height : Int = 30, val initialStates : Int
 	}
 }
 
-class State(var isCell : Boolean = false,
+class State(var active : Boolean = false,
             var persistent : Boolean = false,
             var goal : Boolean = false,
             var protected : Boolean = false) {
 
 	fun copy() : State {
-		return State(isCell, persistent, goal, protected)
+		return State(active, persistent, goal, protected)
 	}
 
 	fun color() : Vector3f {
 		if (goal) return Vector3f(0f, 1f, 0f)
-		if (isCell && persistent) return Vector3f(1f, 0f, 0f)
-		if (isCell && !persistent) return Vector3f(0.9f, 0.5f, 0f)
-		if (!isCell && persistent) return Vector3f(0.1f, 0.1f, 0.1f)
-		if (!isCell && !persistent) return Vector3f(0.5f, 0.5f, 0.5f)
+		if (active && persistent) return Vector3f(1f, 0f, 0f)
+		if (active && !persistent) return Vector3f(0.9f, 0.5f, 0f)
+		if (!active && persistent) return Vector3f(0.1f, 0.1f, 0.1f)
+		if (!active && !persistent) return Vector3f(0.5f, 0.5f, 0.5f)
 		return Vector3f(0f, 0f, 0f)
 	}
 	override operator fun equals(o : Any?) : Boolean {
 		return if (o is State) {
-			isCell == o.isCell && persistent == o.persistent && goal == o.goal
+			active == o.active && persistent == o.persistent && goal == o.goal
 		} else false
 	}
 
 	override fun toString() : String {
 		if (goal) return "g"
-		if (isCell && persistent) return "+"
-		if (isCell && !persistent) return "a"
-		if (!isCell && persistent) return "-"
-		if (!isCell && !persistent) return "0"
+		if (active && persistent) return "+"
+		if (active && !persistent) return "a"
+		if (!active && persistent) return "-"
+		if (!active && !persistent) return "0"
 		return "?"
 	}
 

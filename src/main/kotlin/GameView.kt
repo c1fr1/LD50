@@ -10,12 +10,13 @@ import engine.opengl.jomlExtensions.plus
 import engine.opengl.jomlExtensions.times
 import engine.opengl.shaders.ShaderProgram
 import engine.opengl.shaders.ShaderType
+import org.joml.Math.floor
 import org.joml.Math.lerp
 import org.joml.Matrix4f
 import org.joml.Vector3f
 import org.lwjgl.glfw.GLFW.*
 
-class GameView(val board : Board) : EnigView() {
+class GameView(var lvlID : Int = 0) : EnigView() {
 
 	lateinit var input : InputHandler
 
@@ -26,6 +27,8 @@ class GameView(val board : Board) : EnigView() {
 	lateinit var cam : Camera2D
 
 	lateinit var font : Font
+
+	var board : Board = Board("boards/lvl$lvlID")
 
 	var portionNext = 0.1f
 	var stepping = false
@@ -39,17 +42,56 @@ class GameView(val board : Board) : EnigView() {
 		cam = Camera2D(window, board.height * 1.1f)
 
 		font = Font("Courier New.ttf", 64f, 512, 512)
-
-		board.nextStates = board.calcNext()
 	}
 
 	override fun loop(frameBirth : Long, dtime : Float) : Boolean {
 		FBO.prepareDefaultRender()
 
+		val coords = Vector3f(input.glCursorX, input.glCursorY, 0f) * cam.getMatrix().invert()
+		val cx = floor(coords.x + board.width / 2f).toInt()
+		val cy = floor(coords.y + board.height / 2f).toInt()
+
+		readInput(cx, cy)
+
+		controlStep(dtime)
+
+		drawBoard(cx, cy)
+		drawText()
+
+		return input.keys[GLFW_KEY_ESCAPE] == KeyState.Released
+	}
+
+	fun readInput(cx : Int, cy : Int) {
+
 		if (input.keys[GLFW_KEY_SPACE] == KeyState.Released) {
 			stepping = true
 		}
 
+		if (input.mouseButtons[GLFW_MOUSE_BUTTON_LEFT] == KeyState.Released && board.remainingChanges > 0) {
+			if (cx in board.xrange && cy in board.yrange) {
+				if (!board[cx, cy].persistent && !board[cx, cy].protected) {
+					board[cx, cy].active = !board[cx, cy].active
+					board.nextStates = board.calcNext()
+					board.remainingChanges -= 1
+				}
+			}
+		}
+
+		if (input.keys[GLFW_KEY_R] == KeyState.Released) {
+		}
+	}
+
+	fun setLevel(id : Int) {
+		lvlID = id
+		reset()
+	}
+
+	fun reset() {
+		board = Board("boards/lvl$lvlID")
+		board.nextStates = board.calcNext()
+	}
+
+	fun controlStep(dtime : Float) {
 		if (stepping) {
 			portionNext += dtime * 3
 			if (portionNext >= 1) {
@@ -57,33 +99,10 @@ class GameView(val board : Board) : EnigView() {
 
 				stepping = false
 				board.step()
-				println(board.prevStates.size)
 			}
 		} else {
 			portionNext = 0.1f.coerceAtMost(portionNext + dtime)
 		}
-
-		val coords = Vector3f(input.glCursorX, input.glCursorY, 0f) * cam.getMatrix().invert()
-		val cx = (coords.x + board.width / 2f).toInt()
-		val cy = (coords.y + board.height / 2f).toInt()
-
-		drawBoard(cx, cy)
-		drawText()
-
-		if (input.mouseButtons[GLFW_MOUSE_BUTTON_LEFT] == KeyState.Released) {
-			if (cx in board.xrange && cy in board.yrange) {
-				if (!board[cx, cy].persistent && !board[cx, cy].protected) {
-					board[cx, cy].isCell = !board[cx, cy].isCell
-					board.nextStates = board.calcNext()
-				}
-			}
-		}
-
-		if (input.keys[GLFW_KEY_R] == KeyState.Released) {
-			board.reset()
-		}
-
-		return input.keys[GLFW_KEY_ESCAPE] == KeyState.Released
 	}
 
 	fun drawBoard(cx : Int, cy : Int) {
@@ -114,7 +133,37 @@ class GameView(val board : Board) : EnigView() {
 		lateinit var wmats : Array<Matrix4f>
 		lateinit var tcmats : Array<Matrix4f>
 
-		font.getMats("${board.prevStates.size}", cam.getMatrix().translate(board.width / 2f + 0.15f, board.height / 2f - 0.5f, 0f)) {w, tc ->
+		font.getMats("Steps: ${board.prevStates.size}", cam.getMatrix()
+			.translate(board.width / 2f + 0.15f, board.height / 2f - 0.5f, 0f)
+			.scale(5f / board.height)) {w, tc ->
+			wmats = w
+			tcmats = tc
+		}
+
+		for (i in wmats.indices) {
+			textShader[ShaderType.VERTEX_SHADER, 0] = wmats[i]
+			textShader[ShaderType.VERTEX_SHADER, 1] = tcmats[i]
+			vao.drawTriangles()
+		}
+
+		font.getMats("Goal: ${board.goal1}", cam.getMatrix()
+			.translate(board.width / 2f + 0.15f, board.height / 2f - 0.5f, 0f)
+			.scale(5f / board.height)
+			.translate(0f, -1f, 0f)) {w, tc ->
+			wmats = w
+			tcmats = tc
+		}
+
+		for (i in wmats.indices) {
+			textShader[ShaderType.VERTEX_SHADER, 0] = wmats[i]
+			textShader[ShaderType.VERTEX_SHADER, 1] = tcmats[i]
+			vao.drawTriangles()
+		}
+
+		font.getMats("Toggles: ${board.remainingChanges}", cam.getMatrix()
+			.translate(board.width / 2f + 0.15f, board.height / 2f - 0.5f, 0f)
+			.scale(5f / board.height)
+			.translate(0f, -2f, 0f)) {w, tc ->
 			wmats = w
 			tcmats = tc
 		}
