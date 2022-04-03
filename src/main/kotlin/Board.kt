@@ -109,6 +109,7 @@ class Board(val width : Int = 30, val height : Int = 30, val initialStates : Int
 				println("congrats you lost")
 			}
 		}
+		nextStates = calcNext()
 	}
 
 	fun iterateFromCenter(f : (Int, Int) -> Boolean) : Boolean {
@@ -145,9 +146,9 @@ class State(var active : Boolean = false,
 	}
 
 	fun color() : Vector3f {
-		if (goal) return Vector3f(0f, 1f, 0f)
 		if (active && persistent) return Vector3f(1f, 0f, 0f)
 		if (active && !persistent) return Vector3f(0.9f, 0.5f, 0f)
+		if (goal) return Vector3f(0f, 1f, 0f)
 		if (!active && persistent) return Vector3f(0.1f, 0.1f, 0.1f)
 		if (!active && !persistent) return Vector3f(0.5f, 0.5f, 0.5f)
 		return Vector3f(0f, 0f, 0f)
@@ -172,7 +173,7 @@ class State(var active : Boolean = false,
 			return when (total) {
 				0 -> State(false, persistent, goal, protected)
 				1 -> State(false, persistent, goal, protected)
-				2 -> State(true, persistent, false, protected)
+				2 -> State(true, persistent, goal, protected)
 				3 -> State(false, persistent, goal, protected)
 				4 -> State(false, persistent, goal, protected)
 				5 -> State(false, persistent, goal, protected)
