@@ -19,6 +19,18 @@ fun InternalBoard.print() {
 
 fun InternalBoard.lost() : Boolean = any {r -> r.any { it.goal && it.active } }
 
+fun InternalBoard.calcNext() : InternalBoard {
+	return Array(size) {y -> Array(get(0).size) {x ->
+		var total = 0
+		for (dy in -1..1) for (dx in -1..1) {
+			if (y + dy in indices && x + dx in get(0).indices && (dx != 0 || dy != 0)) {
+				if (this[y + dy][x + dx].active) ++total
+			}
+		}
+		this[y][x].applyRule(total)
+	} }
+}
+
 class Board(val width : Int = 30, val height : Int = 30, val initialStates : InternalBoard = Array(height) {Array(width) {State()} }) {
 
 	var states = Array(height) {y -> Array(width) {x -> initialStates[y][x]} }

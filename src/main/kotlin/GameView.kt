@@ -19,7 +19,9 @@ open class GameView(var lvlID : Int = 0) : EnigView() {
 
 	lateinit var cellShader : ShaderProgram
 	lateinit var textShader : ShaderProgram
+	lateinit var colorShader : ShaderProgram
 	lateinit var vao : VAO
+	lateinit var textVAO : VAO
 
 	lateinit var cam : Camera2D
 
@@ -32,14 +34,19 @@ open class GameView(var lvlID : Int = 0) : EnigView() {
 
 	lateinit var window : EnigWindow
 
+	var wonner = false
+	var wonnerTimer = -0.5f
+
 	var shouldClose = false
 
 	override fun generateResources(window : EnigWindow) {
 		input = window.inputHandler
 
 		vao = VAO(-0.5f, -0.5f, 1f, 1f)
+		textVAO = VAO(0f, 0f, 1f, 1f)
 		cellShader = ShaderProgram("cellShader")
 		textShader = ShaderProgram("textShader")
+		colorShader = ShaderProgram("colorShader")
 		cam = Camera2D(window, board.height * 1.1f)
 
 		this.window = window
@@ -55,7 +62,9 @@ open class GameView(var lvlID : Int = 0) : EnigView() {
 		val cx = floor(coords.x + board.width.toFloat() / 2f).toInt()
 		val cy = floor(coords.y + board.height.toFloat() / 2f).toInt()
 
-		readInput(cx, cy)
+		if (!wonner && wonnerTimer < 0) {
+			readInput(cx, cy)
+		}
 
 		controlStep(dtime)
 
@@ -63,6 +72,12 @@ open class GameView(var lvlID : Int = 0) : EnigView() {
 		drawText()
 
 		checkWin()
+
+		wonnerTimer -= dtime
+
+		if (wonner) {
+			drawVictoryScreen()
+		}
 
 		return input.keys[GLFW_KEY_ESCAPE] == KeyState.Released || shouldClose
 	}
@@ -79,6 +94,10 @@ open class GameView(var lvlID : Int = 0) : EnigView() {
 	}
 
 	open fun winLevel() {
+		wonner = true
+	}
+
+	open fun progress() {
 		if (lvlID < ScoreManager.numLevels) setLevel(lvlID + 1) else shouldClose = true
 	}
 
@@ -90,7 +109,7 @@ open class GameView(var lvlID : Int = 0) : EnigView() {
 
 		if (input.mouseButtons[GLFW_MOUSE_BUTTON_LEFT] == KeyState.Released && board.remainingChanges > 0) {
 			if (cx in board.xrange && cy in board.yrange) {
-				if (!board[cx, cy].persistent && !board[cx, cy].protected) {
+				if (!board[cx, cy].persistent && !board[cx, cy].protected && !board[cx, cy].goal) {
 					board[cx, cy].active = !board[cx, cy].active
 					board.nextStates = board.calcNext()
 					board.remainingChanges -= 1
@@ -100,10 +119,6 @@ open class GameView(var lvlID : Int = 0) : EnigView() {
 
 		if (input.keys[GLFW_KEY_R] == KeyState.Released) {
 			reset()
-		}
-
-		if (input.keys[GLFW_KEY_TAB] == KeyState.Released) {
-			setLevel(lvlID + 1)
 		}
 	}
 
@@ -116,6 +131,8 @@ open class GameView(var lvlID : Int = 0) : EnigView() {
 		board = Board("boards/lvl$lvlID")
 		board.nextStates = board.calcNext()
 		cam = Camera2D(window, board.height * 1.1f)
+		wonner = false
+		input.mouseButtons[GLFW_MOUSE_BUTTON_LEFT] = KeyState.Up
 	}
 
 	open fun controlStep(dtime : Float) {
@@ -152,10 +169,10 @@ open class GameView(var lvlID : Int = 0) : EnigView() {
 		vao.unbind()
 	}
 
-	fun drawText() {
+	open fun drawText() {
 		textShader.enable()
 		font.bind()
-		vao.prepareRender()
+		textVAO.prepareRender()
 
 		lateinit var wmats : Array<Matrix4f>
 		lateinit var tcmats : Array<Matrix4f>
@@ -164,7 +181,7 @@ open class GameView(var lvlID : Int = 0) : EnigView() {
 
 		font.getMats("Toggles: ${board.remainingChanges}", cam.getMatrix()
 			.translate(board.width / 2f + 0.15f, board.height / 2f - 0.5f, 0f)
-			.scale(board.height / 30f)
+			.scale(board.height / 20f)
 			.translate(0f, -2f, 0f)) {w, tc ->
 			wmats = w
 			tcmats = tc
@@ -172,12 +189,12 @@ open class GameView(var lvlID : Int = 0) : EnigView() {
 		for (i in wmats.indices) {
 			textShader[ShaderType.VERTEX_SHADER, 0] = wmats[i]
 			textShader[ShaderType.VERTEX_SHADER, 1] = tcmats[i]
-			vao.drawTriangles()
+			textVAO.drawTriangles()
 		}
 
 		font.getMats("Steps: ${board.prevStates.size}", cam.getMatrix()
 			.translate(board.width / 2f + 0.15f, board.height / 2f - 0.5f, 0f)
-			.scale(board.height / 30f)) {w, tc ->
+			.scale(board.height / 20f)) {w, tc ->
 			wmats = w
 			tcmats = tc
 		}
@@ -185,7 +202,7 @@ open class GameView(var lvlID : Int = 0) : EnigView() {
 		for (i in wmats.indices) {
 			textShader[ShaderType.VERTEX_SHADER, 0] = wmats[i]
 			textShader[ShaderType.VERTEX_SHADER, 1] = tcmats[i]
-			vao.drawTriangles()
+			textVAO.drawTriangles()
 		}
 
 		if (board.prevStates.size < board.goal1) {
@@ -200,7 +217,7 @@ open class GameView(var lvlID : Int = 0) : EnigView() {
 		for (i in wmats.indices) {
 			textShader[ShaderType.VERTEX_SHADER, 0] = wmats[i]
 			textShader[ShaderType.VERTEX_SHADER, 1] = tcmats[i]
-			vao.drawTriangles()
+			textVAO.drawTriangles()
 		}
 
 		val goal = if (board.prevStates.size < board.goal1) {
@@ -218,7 +235,7 @@ open class GameView(var lvlID : Int = 0) : EnigView() {
 		}
 		font.getMats("Goal: $goal", cam.getMatrix()
 			.translate(board.width / 2f + 0.15f, board.height / 2f - 0.5f, 0f)
-			.scale(board.height / 30f)
+			.scale(board.height / 20f)
 			.translate(0f, -1f, 0f)) {w, tc ->
 			wmats = w
 			tcmats = tc
@@ -227,8 +244,90 @@ open class GameView(var lvlID : Int = 0) : EnigView() {
 		for (i in wmats.indices) {
 			textShader[ShaderType.VERTEX_SHADER, 0] = wmats[i]
 			textShader[ShaderType.VERTEX_SHADER, 1] = tcmats[i]
-			vao.drawTriangles()
+			textVAO.drawTriangles()
 		}
-		vao.unbind()
+		textVAO.unbind()
+	}
+
+	open fun drawVictoryScreen() {
+		val cam = Camera2D(window, 10f)
+
+		colorShader.enable()
+
+		colorShader[2, 0] = Vector3f(0.25f, 0.25f, 0.25f)
+		colorShader[0, 0] = cam.getMatrix().scale(7f, 5f, 1f)
+		vao.prepareRender()
+		vao.drawTriangles()
+
+
+		colorShader[2, 0] = Vector3f(0.15f, 0.15f, 0.15f)
+		val retryMat = cam.getMatrix().translate(-1.7f, -1.5f, 0f).scale(2.5f, 1f, 1f)
+		colorShader[0, 0] = retryMat
+		var pos = Vector3f(input.glCursorX, -input.glCursorY, 0f) * retryMat.invert()
+		if (pos.x in -0.5f..0.5f && pos.y in -0.5f..0.5f) {
+			colorShader[2, 0] = Vector3f(0.6f, 0.6f, 0.6f)
+			if (input.mouseButtons[GLFW_MOUSE_BUTTON_LEFT] == KeyState.Pressed) reset()
+		}
+		vao.drawTriangles()
+
+		colorShader[2, 0] = Vector3f(0.15f, 0.15f, 0.15f)
+		val nextMat = cam.getMatrix().translate(1.7f, -1.5f, 0f).scale(2.5f, 1f, 1f)
+		colorShader[0, 0] = nextMat
+		pos = Vector3f(input.glCursorX, -input.glCursorY, 0f) * nextMat.invert()
+		if (pos.x in -0.5f..0.5f && pos.y in -0.5f..0.5f) {
+			colorShader[2, 0] = Vector3f(0.6f, 0.6f, 0.6f)
+			if (input.mouseButtons[GLFW_MOUSE_BUTTON_LEFT] == KeyState.Pressed) progress()
+			input.mouseButtons[GLFW_MOUSE_BUTTON_LEFT] = KeyState.Up
+			wonnerTimer = 1f
+		}
+		vao.drawTriangles()
+
+
+		textShader.enable()
+		textVAO.prepareRender()
+
+		var victoryColor = Vector3f(0.715f, 0.255f, 0.055f)
+		var victoryText = "Bronze Victory"
+		var offset = Vector3f(-3.9f, 3.0f, 0f)
+		if (board.prevStates.size >= board.goal2) {
+			victoryColor = Vector3f(0.753f, 0.753f, 0.765f)
+			victoryText = "Silver Victory"
+			offset = Vector3f(-3.8f, 3.0f, 0f)
+		}
+		if (board.prevStates.size >= board.goal3) {
+			victoryColor = Vector3f(1f, 0.843f, 0f)
+			victoryText = "Gold Victory"
+			offset = Vector3f(-3.2f, 3.0f, 0f)
+		}
+
+		textShader[ShaderType.FRAGMENT_SHADER, 0] = victoryColor
+		font.getMats(victoryText, cam.getMatrix().scale(0.6f).translate(offset)
+		) { w, tc ->
+			for (j in w.indices) {
+				textShader[ShaderType.VERTEX_SHADER, 0] = w[j]
+				textShader[ShaderType.VERTEX_SHADER, 1] = tc[j]
+				textVAO.drawTriangles()
+			}
+		}
+
+		textShader[ShaderType.FRAGMENT_SHADER, 0] = Vector3f(0f, 0f, 0f)
+		font.getMats("Retry", cam.getMatrix().scale(0.5f).translate(-4.7f, -3.2f, 0f)
+		) { w, tc ->
+			for (j in w.indices) {
+				textShader[ShaderType.VERTEX_SHADER, 0] = w[j]
+				textShader[ShaderType.VERTEX_SHADER, 1] = tc[j]
+				textVAO.drawTriangles()
+			}
+		}
+
+		font.getMats("Next", cam.getMatrix().scale(0.5f).translate(2.5f, -3.2f, 0f)
+		) { w, tc ->
+			for (j in w.indices) {
+				textShader[ShaderType.VERTEX_SHADER, 0] = w[j]
+				textShader[ShaderType.VERTEX_SHADER, 1] = tc[j]
+				textVAO.drawTriangles()
+			}
+		}
+		textVAO.unbind()
 	}
 }

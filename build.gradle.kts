@@ -23,14 +23,16 @@ val jomlVersion = "1.10.1"
 
 plugins {
     kotlin("jvm") version "1.6.10"
+    id("com.github.johnrengelman.shadow") version "7.0.0"
     application
 }
 
 group = "c1fr1"
-version = "0.0"
+version = "1.0"
 
 repositories {
     mavenCentral()
+    maven(url = "https://oss.sonatype.org/content/repositories/snapshots/")
 
     maven {
         url = uri("https://maven.pkg.github.com/c1fr1/Enignets")
@@ -46,15 +48,12 @@ repositories {
 dependencies {
     implementation(platform("org.lwjgl:lwjgl-bom:$lwjglVersion"))
 
-    implementation("org.lwjgl", "lwjgl-assimp")
     implementation("org.lwjgl", "lwjgl-glfw")
-    implementation("org.lwjgl", "lwjgl-openal")
     implementation("org.lwjgl", "lwjgl-opengl")
     implementation("org.joml", "joml", jomlVersion)
 
     runtimeOnly("org.lwjgl", "lwjgl", classifier = lwjglNatives)
     runtimeOnly("org.lwjgl", "lwjgl-glfw", classifier = lwjglNatives)
-    runtimeOnly("org.lwjgl", "lwjgl-openal", classifier = lwjglNatives)
     runtimeOnly("org.lwjgl", "lwjgl-opengl", classifier = lwjglNatives)
     runtimeOnly("org.lwjgl", "lwjgl-stb", classifier = lwjglNatives)
 
@@ -63,6 +62,13 @@ dependencies {
 
 tasks.withType<KotlinCompile> {
     kotlinOptions.jvmTarget = "1.8"
+}
+
+tasks.withType<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>() {
+    manifest {
+        attributes(mapOf("Main-Class" to "MainKt"))
+    }
+    archiveFileName.set("Infector-Automata-$osString.jar")
 }
 
 application {
