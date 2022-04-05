@@ -46,16 +46,8 @@ repositories {
 
 
 dependencies {
-    implementation(platform("org.lwjgl:lwjgl-bom:$lwjglVersion"))
 
-    implementation("org.lwjgl", "lwjgl-glfw")
-    implementation("org.lwjgl", "lwjgl-opengl")
     implementation("org.joml", "joml", jomlVersion)
-
-    runtimeOnly("org.lwjgl", "lwjgl", classifier = lwjglNatives)
-    runtimeOnly("org.lwjgl", "lwjgl-glfw", classifier = lwjglNatives)
-    runtimeOnly("org.lwjgl", "lwjgl-opengl", classifier = lwjglNatives)
-    runtimeOnly("org.lwjgl", "lwjgl-stb", classifier = lwjglNatives)
 
     implementation("c1fr1:enignets:${enignetsVersion}")//using specific version on github packages
 }
